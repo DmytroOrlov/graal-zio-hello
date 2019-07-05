@@ -1,25 +1,102 @@
+import java.nio.file.{Files, StandardCopyOption}
 import Dependencies._
 
-lazy val zioVersion = "1.0.0-RC9-2"
+lazy val zioVersion = "1.0.0-RC12-1"
 
 lazy val `graal-zio-hello` = (project in file("."))
   .settings(
     inThisBuild(Seq(
-      scalaVersion := "2.12.8",
+      scalaVersion := "2.13.0",
       version := "0.1.0-SNAPSHOT",
-      organization := "com.github.DmytroOrlov"
+      organization := "io.github.DmytroOrlov",
     )),
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
-    addCompilerPlugin(("org.scalameta" % "paradise" % "3.0.0-M11").cross(CrossVersion.full)),
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-interop-cats" % "1.3.1.0-RC2",
-      "io.monix" %% "monix" % "3.0.0-RC3",
-      "org.typelevel" %% "cats-core" % "2.0.0-M4",
-      "org.typelevel" %% "cats-mtl-core" % "0.5.0",
-      "org.typelevel" %% "cats-tagless-macros" % "0.8",
       scalaTest % Test,
-      scalaCheck % Test
     ),
-    scalacOptions += "-Ypartial-unification"
   )
+  .enablePlugins(DockerPlugin, JavaServerAppPackaging)
+  .settings(
+    dockerGraalvmNative := {
+      val log = streams.value.log
+
+      val stageDir = target.value / "native-docker" / "stage"
+      stageDir.mkdirs()
+
+      // copy all jars to the staging directory
+      val cpDir = stageDir / "cp"
+      cpDir.mkdirs()
+
+      val classpathJars = Seq((packageBin in Compile).value) ++
+        (dependencyClasspath in Compile).value.map(_.data)
+      classpathJars.foreach(cpJar => Files.copy(
+        cpJar.toPath,
+        (cpDir / cpJar.name).toPath,
+        StandardCopyOption.REPLACE_EXISTING))
+
+      val resultDir = stageDir / "result"
+      resultDir.mkdirs()
+      val resultName = "out"
+
+      val className = (mainClass in Compile).value
+        .getOrElse(sys.error("Could not find a main class."))
+
+      val runNativeImageCommand = Seq(
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        s"${cpDir.getAbsolutePath}:/opt/cp",
+        "-v",
+        s"${resultDir.getAbsolutePath}:/opt/graalvm",
+        "graalvm-native-image",
+        //"--report-unsupported-elements-at-runtime",
+        "-H:+ReportExceptionStackTraces",
+        "-cp",
+        "/opt/cp/*",
+        "--static",
+        s"-H:Name=$resultName",
+        className
+      )
+
+      log.info("Running native-image using the 'graalvm-native-image' docker container")
+      log.info(s"Running: ${runNativeImageCommand.mkString(" ")}")
+
+      sys.process.Process(runNativeImageCommand, resultDir) ! streams.value.log match {
+        case 0 => resultDir / resultName
+        case r => sys.error(s"Failed to run docker, exit status: " + r)
+      }
+
+      IO.write(
+        file((stageDir / "Dockerfile").getAbsolutePath),
+        """#FROM alpine:3.10.0
+          |FROM alpine
+          |COPY out /opt/docker/out
+          |RUN chmod +x /opt/docker/out
+          |CMD ["/opt/docker/out"]
+          |""".stripMargin.getBytes("UTF-8")
+      )
+      val buildContainerCommand = Seq(
+        "docker",
+        "build",
+        "-t",
+        name.value,
+        "-f",
+        (stageDir / "Dockerfile")
+          .getAbsolutePath,
+        resultDir.absolutePath
+      )
+
+      log.info("Building the container with the generated native image")
+      log.info(s"Running: ${buildContainerCommand.mkString(" ")}")
+
+      sys.process.Process(buildContainerCommand, resultDir) ! streams.value.log match {
+        case 0 => resultDir / resultName
+        case r => sys.error(s"Failed to run docker, exit status: " + r)
+      }
+    }
+  )
+
+val dockerGraalvmNative = taskKey[Unit](
+  "Create a docker image containing a binary build with GraalVM's native-image."
+)
