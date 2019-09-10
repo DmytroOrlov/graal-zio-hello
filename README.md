@@ -11,7 +11,7 @@ $ sbt dockerGraalvmNative
 $ docker run -it --rm graal-zio-hello
 ```
 # All together
-``sbt
+```sh
 $ docker build --tag graalvm-native-image . && \
   sbt dockerGraalvmNative && \
   docker run -it --rm graal-zio-hello

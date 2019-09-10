@@ -11,5 +11,5 @@ object Hello extends App {
   } yield ()
 
   def run(args: List[String]) =
-    program.fold(_ => 1, _ => 0).untraced
+    program.fold(_ => 1, _ => 0) //.untraced
 }
