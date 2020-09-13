@@ -1,21 +1,28 @@
-import java.nio.file.{Files, StandardCopyOption}
-import Dependencies._
+val V = new {
+  val zio = "1.0.1"
+  val graal = "20.2.0-java11-ol8"
+}
 
-lazy val zioVersion = "1.0.0-RC12-1"
+val Deps = new {
+  val scalaTest = "org.scalatest" %% "scalatest" % "3.0.8"
+}
 
 lazy val `graal-zio-hello` = (project in file("."))
   .enablePlugins(GraalVMNativeImagePlugin, DockerPlugin, JavaServerAppPackaging)
   .settings(
     inThisBuild(Seq(
-      scalaVersion := "2.12.9",
+      scalaVersion := "2.12.11",
       version := "0.1.0-SNAPSHOT",
       organization := "io.github.DmytroOrlov",
     )),
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion,
-      scalaTest % Test,
+      "dev.zio" %% "zio" % V.zio,
+      Deps.scalaTest % Test,
     ),
     graalVMNativeImageOptions += "--static",
+    graalVMNativeImageOptions += "--no-fallback",
+    // graalVMNativeImageOptions += "--report-unsupported-elements-at-runtime",
+    graalVMNativeImageGraalVersion := Some(V.graal),
   )
   .settings(
     dockerGraalvmNative := {
@@ -25,10 +32,10 @@ lazy val `graal-zio-hello` = (project in file("."))
 
       IO.write(
         file((stageDir / "Dockerfile").getAbsolutePath),
-        s"""FROM alpine:3.10.2
-          |COPY graalvm-native-image/${name.value} /opt/docker/out
-          |CMD ["/opt/docker/out"]
-          |""".stripMargin.getBytes("UTF-8"))
+        s"""FROM oracle/graalvm-ce:${V.graal}
+           |COPY graalvm-native-image/${name.value} /opt/docker/out
+           |ENTRYPOINT ["/opt/docker/out"]
+           |""".stripMargin.getBytes("UTF-8"))
       val buildContainerCommand = Seq(
         "docker",
         "build",
