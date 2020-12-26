@@ -1,6 +1,6 @@
 val V = new {
   val zio = "1.0.1"
-  val graal = "20.2.0-java11-ol8"
+  val graal = "20.3.0-java11"
 }
 
 val Deps = new {
