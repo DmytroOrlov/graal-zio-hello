@@ -1,7 +1,7 @@
 val V = new {
-  val zio = "1.0.1"
-  val scalaV = "2.12.11"
+  val zio = "1.0.3"
   val graal = "20.3.0-java11"
+  val scalaV = "2.12.11"
 }
 
 val Deps = new {
