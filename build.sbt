@@ -4,7 +4,7 @@ val V = new {
 }
 
 val Deps = new {
-  val scalaTest = "org.scalatest" %% "scalatest" % "3.0.8"
+  val scalaTest = "org.scalatest" %% "scalatest" % "3.2.3"
 }
 
 lazy val `graal-zio-hello` = (project in file("."))
