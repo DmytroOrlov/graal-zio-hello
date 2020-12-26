@@ -1,5 +1,6 @@
 val V = new {
   val zio = "1.0.1"
+  val scalaV = "2.12.11"
   val graal = "20.3.0-java11"
 }
 
@@ -11,7 +12,7 @@ lazy val `graal-zio-hello` = (project in file("."))
   .enablePlugins(GraalVMNativeImagePlugin, DockerPlugin, JavaServerAppPackaging)
   .settings(
     inThisBuild(Seq(
-      scalaVersion := "2.12.11",
+      scalaVersion := V.scalaV,
       version := "0.1.0-SNAPSHOT",
       organization := "io.github.DmytroOrlov",
     )),
